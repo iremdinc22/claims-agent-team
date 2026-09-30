@@ -1,0 +1,14 @@
+spring:
+  application:
+    name: claims-agent-team
+  datasource:
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/claims_agent_team}
+    username: ${DATABASE_USERNAME:claims_agent}
+    password: ${DATABASE_PASSWORD:claims_agent}
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    open-in-view: false
+
+server:
+  port: ${SERVER_PORT:8080}
