@@ -2,7 +2,7 @@ spring:
   application:
     name: claims-agent-team
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/claims_agent_team}
+    url: ${DATABASE_URL:jdbc:postgresql://localhost:55432/claims_agent_team}
     username: ${DATABASE_USERNAME:claims_agent}
     password: ${DATABASE_PASSWORD:claims_agent}
   jpa:

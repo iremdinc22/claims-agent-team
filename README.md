@@ -26,7 +26,7 @@ The default local database settings are:
 - Database: `claims_agent_team`
 - Username: `claims_agent`
 - Password: `claims_agent`
-- Port: `5432`
+- Host port: `55432` (mapped to PostgreSQL port `5432` inside the container)
 
 These values can be overridden through the environment variables documented in
 [`backend/src/main/resources/application.yml`](backend/src/main/resources/application.yml).
