@@ -24,3 +24,26 @@ export interface ApiErrorResponse {
   message: string
   fieldErrors: Record<string, string>
 }
+
+export const CLAIM_STATUSES = ['REPORTED', 'PENDING', 'APPROVED', 'REJECTED'] as const
+export type ClaimStatus = (typeof CLAIM_STATUSES)[number]
+
+export interface ClaimListItem {
+  claimNumber: string
+  policyNumber: string
+  incidentType: IncidentType
+  incidentDate: string
+  status: ClaimStatus
+}
+
+export interface ClaimDetail extends ClaimListItem {
+  description: string
+}
+
+export interface ClaimListResponse {
+  items: ClaimListItem[]
+  page: number
+  pageSize: 10
+  totalItems: number
+  totalPages: number
+}
