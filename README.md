@@ -1,25 +1,28 @@
 # Claims Agent Team
 
-Claims Agent Team is a deliberately small full-stack claims application and an experiment in role-based, agent-assisted software delivery. Its main subject is not insurance software at scale, but how a feature moves from a human request through requirements, domain review, architecture, parallel implementation, independent QA, and final human approval.
+Claims Agent Team combines a small motor-claims application with an experiment in role-based, agent-assisted software delivery, from human request through implementation, independent QA, and Human Approval.
 
 ## Current Status
 
-**TASK-001 — Create Claim is complete:** it passed QA and received Human Approval. The application currently supports one bounded motor-claim reporting flow and is not a production insurance platform.
+| Task | Status | QA | Human Approval |
+|---|---|---|---|
+| TASK-001 — Create Claim | COMPLETE | PASS | APPROVED |
+| TASK-002 — Claim List and Detail | COMPLETE | PASS | APPROVED |
+
+The application remains a deliberately small motor-claims prototype, not a production insurance platform. See the Human Approval records for [TASK-001](tasks/TASK-001-create-claim/human-approval.md) and [TASK-002](tasks/TASK-002-claim-list/human-approval.md).
 
 ## Why This Repository Exists
 
-The project explores whether explicit roles, authority boundaries, durable artifacts, and human decision points can make agent-based software delivery more controlled and reviewable.
+The main purpose is demonstrating controlled agent collaboration through role boundaries, artifact-based handoffs, independent QA, and Human Approval.
 
 | Concern | Purpose |
 |---|---|
-| **The application** | A minimal React and Spring Boot system that accepts and persists motor claim reports. It provides real full-stack behavior for design, implementation, integration, and testing. |
-| **The delivery workflow** | Specialized agents own different decisions, hand work off through versioned artifacts, and escalate ambiguity instead of crossing role boundaries. |
-
-The small application keeps the experiment focused on traceability: what was requested, who decided what, what was implemented, and how it was accepted.
+| **The application** | Motor claim creation, listing, and details in React and Spring Boot. |
+| **The delivery workflow** | Roles, versioned handoffs, independent QA, and Human Approval. |
 
 ## Delivery Workflow
 
-Every feature begins as a task under `tasks/` and progresses through the roles defined in [`AGENTS.md`](AGENTS.md) and [`agents/`](agents/).
+Features begin under `tasks/` and follow [`AGENTS.md`](AGENTS.md) and the [role definitions](agents/).
 
 ```mermaid
 flowchart LR
@@ -33,82 +36,77 @@ flowchart LR
     QA --> H2[Human Approval]
 ```
 
-After the Software Architect defines a shared contract, backend and frontend work can proceed independently. QA evaluates the merged result, and human approval remains the final authority.
+After the shared technical design and API contract are approved, backend and frontend may work in parallel. QA verifies the merged result before Human Approval.
 
 ## Agent Team
 
 | Role | Owns | Does not own |
 |---|---|---|
-| **Business Analyst** | Scope, requirements, acceptance criteria, edge cases | Domain rules, architecture, implementation |
+| **Business Analyst** | Requirements, acceptance criteria, edge cases | Domain rules, architecture, implementation |
 | **Domain Expert** | Insurance rules, terminology, domain constraints | APIs, architecture, implementation |
 | **Software Architect** | Technical design, component boundaries, API contract, data direction | Requirements or domain policy |
 | **Backend Developer** | Server logic, persistence, authoritative validation, backend tests | Frontend or contract changes |
 | **Frontend Developer** | UI behavior, client validation, API integration | Backend or contract changes |
 | **QA Engineer** | Acceptance, integration, and regression verification; defect reporting | Redefining criteria or silently fixing defects |
 
-The detailed operating rules for each role are versioned in [`agents/`](agents/).
-
 ## Artifact-Based Handoffs
 
-Each feature has a workspace at `tasks/<task-id>/`. Its files form the source-controlled handoff record between roles:
+Each `tasks/<task-id>/` directory records handoffs:
 
 | Artifact | Purpose |
 |---|---|
 | `request.md` | Original human request |
-| `requirements.md` | Scope, requirements, acceptance criteria, and open questions |
-| `human-decisions.md` | Explicit product or domain decisions supplied by the human |
-| `domain-review.md` | Confirmed rules, rejected assumptions, and review status |
-| `technical-design.md` | Architecture, API contract, ownership, and testing strategy |
+| `requirements.md` | Requirements and acceptance criteria |
+| `human-decisions.md` | Human product/domain decisions |
+| `domain-review.md` | Domain rules and approval |
+| `technical-design.md` | Architecture, API contract, testing |
 | `backend-notes.md` / `frontend-notes.md` | Implementation and validation handoffs |
 | `qa-report.md` | Independent acceptance and regression results |
 | `human-approval.md` | Final human decision |
 
-Agents read approved upstream artifacts before acting. Missing or contradictory decisions are escalated to their owner rather than assumed.
+[TASK-001](tasks/TASK-001-create-claim/) and [TASK-002](tasks/TASK-002-claim-list/) contain these artifacts.
 
 ## Parallel Backend and Frontend Development
 
-TASK-001 used separate Git branches and worktrees after the architecture and API contract were approved:
-
-| Area | Branch | Worktree |
-|---|---|---|
-| Backend | `agent/task-001-backend` | `../claims-agent-team-backend` |
-| Frontend | `agent/task-001-frontend` | `../claims-agent-team-frontend` |
-
-Each developer role worked within its own checkout against the approved contract. The branches were merged into `main` and verified together before Human Approval.
+TASK-001 and TASK-002 both used isolated backend/frontend worktrees against approved contracts, followed by merge, integrated independent QA, and Human Approval.
 
 ## Application Architecture
 
 ```mermaid
-flowchart LR
-    UI[React claim form] -->|POST /api/claims| API[Spring Boot API]
-    API --> SVC[Claim service]
-    SVC --> POLICY[(Policy reference)]
-    SVC --> CLAIMS[(Claims)]
-    POLICY --- DB[(PostgreSQL)]
-    CLAIMS --- DB
+flowchart TD
+    UI[React / TypeScript / Vite] -->|REST /api| API[Spring Boot REST API]
+    API --> DB[(PostgreSQL)]
 ```
 
-The implementation intentionally uses a direct controller-service-repository flow with minimal dependencies and no speculative abstraction layers.
+The backend uses a direct controller-service-repository flow.
 
 ### Technology Stack
 
 | Layer | Technology |
 |---|---|
-| Frontend | React 19, TypeScript 7, Vite 8 |
-| Backend | Java 21, Spring Boot 3.5, Spring Web, Spring Data JPA, Spring Validation |
+| Frontend | React 19, TypeScript, Vite |
+| Backend | Java 21, Spring Boot 3.5 |
 | Database | PostgreSQL 17 |
 | Testing | JUnit, Spring MVC test support, Mockito, live PostgreSQL integration verification |
 | Local orchestration | Docker Compose |
 
-In development, the frontend calls the relative `/api` path and Vite proxies requests to the backend at `http://localhost:8080`.
+Vite proxies relative `/api` requests to `http://localhost:8080`.
 
-## TASK-001: Create Claim
+## Implemented Features
 
-TASK-001 is the first completed request-to-approval example. It implements a single-page motor claim form backed by `POST /api/claims` and PostgreSQL.
+### TASK-001 — Create Claim
 
-Claims require a policy number, incident type, incident date, and description. The backend verifies policy existence, rejects future dates and unsupported incident types, generates a UUID claim number, and assigns `REPORTED`. Local setup seeds `MOTOR-POLICY-001` for demonstration.
+The frontend submits motor claims; the backend validates policy existence, incident type, required fields, and non-future dates. Creation generates a UUID, assigns initial `REPORTED`, and persists to PostgreSQL. Setup seeds `MOTOR-POLICY-001`.
 
-This is intake only: `REPORTED` is not a coverage, liability, approval, or payment decision. Detailed rules, design, implementation notes, QA evidence, and approval are available in [`tasks/TASK-001-create-claim/`](tasks/TASK-001-create-claim/).
+This is intake only, without coverage, approval, or payment decisions. See [TASK-001 artifacts](tasks/TASK-001-create-claim/).
+
+### TASK-002 — Claim List and Detail
+
+The own-claim list opens directly, with backend-enforced ownership, history visibility, and 10-record pagination. Ordering is incident date descending, then created-at descending. Read-only details display `REPORTED`, `PENDING`, `APPROVED`, or `REJECTED`. Loading, empty, and error + Retry states support retrieval.
+
+Ownership uses a trusted backend-side demo identity shared by all visitors; real authentication is not implemented. Legacy prototype-data backfill assigns missing ownership and migration timestamps, not original creation times. New claims preserve actual creation timestamps.
+
+Users cannot change status; company-side processing, editing, and deletion are outside scope. See [TASK-002 artifacts](tasks/TASK-002-claim-list/).
 
 ## Repository Structure
 
@@ -119,7 +117,8 @@ claims-agent-team/
 ├── backend/                     # Spring Boot API, persistence, and tests
 ├── frontend/                    # React/Vite client
 ├── tasks/
-│   └── TASK-001-create-claim/   # Request-to-approval artifact trail
+│   ├── TASK-001-create-claim/
+│   └── TASK-002-claim-list/
 ├── compose.yaml                 # Local PostgreSQL
 └── README.md
 ```
@@ -130,10 +129,10 @@ claims-agent-team/
 
 - Java 21 or newer
 - Docker with Docker Compose
-- Node.js 20 or newer
+- Node.js 20.19+ on the 20.x line, or 22.12+ (Vite dependency requirement)
 - npm
 
-The backend includes the Maven Wrapper. Run the database, backend, and frontend in separate terminals.
+Use separate terminals; Maven Wrapper is included.
 
 ### 1. Start PostgreSQL
 
@@ -142,7 +141,7 @@ docker compose up -d postgres
 docker compose ps
 ```
 
-PostgreSQL is exposed on host port `55432` and uses database/user/password `claims_agent_team` / `claims_agent` / `claims_agent`. Connection values can be overridden with `DATABASE_URL`, `DATABASE_USERNAME`, and `DATABASE_PASSWORD`.
+PostgreSQL is exposed on host port `55432` and uses database/user/password `claims_agent_team` / `claims_agent` / `claims_agent`. Override connections with `DATABASE_URL`, `DATABASE_USERNAME`, and `DATABASE_PASSWORD`.
 
 ### 2. Start the Backend
 
@@ -151,23 +150,29 @@ cd backend
 ./mvnw spring-boot:run
 ```
 
-The backend starts at [http://localhost:8080](http://localhost:8080), initializes the schema, and seeds `MOTOR-POLICY-001` idempotently.
+Backend: [localhost:8080](http://localhost:8080). Startup upgrades/validates the schema and seeds the demo policy. Stop old instances before upgrading; see [setup notes](backend/README.md).
 
 ### 3. Start the Frontend
 
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 
-Open [http://localhost:5173](http://localhost:5173).
+Open [localhost:5173](http://localhost:5173); if occupied, use Vite’s printed URL.
 
 Use `Ctrl+C` to stop foreground processes and `docker compose stop postgres` to stop the database.
 
 ## API
 
-The implemented endpoint is `POST /api/claims`:
+| Endpoint | Behavior |
+|---|---|
+| `POST /api/claims` | Create a claim |
+| `GET /api/claims` | List own claims; optional one-based `page`, default 1 |
+| `GET /api/claims/{claimNumber}` | Retrieve own claim details |
+
+Create a claim:
 
 ```bash
 curl -X POST http://localhost:8080/api/claims \
@@ -180,7 +185,7 @@ curl -X POST http://localhost:8080/api/claims \
   }'
 ```
 
-A successful request returns `201 Created` with a generated claim number:
+Success: `201 Created`:
 
 ```json
 {
@@ -189,7 +194,25 @@ A successful request returns `201 Created` with a generated claim number:
 }
 ```
 
-Validation, missing-policy, and unexpected failures use a consistent error payload. The full contract is documented in [`technical-design.md`](tasks/TASK-001-create-claim/technical-design.md).
+`GET /api/claims?page=1` returns `200 OK`, for example:
+
+```json
+{
+  "items": [{
+    "claimNumber": "550e8400-e29b-41d4-a716-446655440000",
+    "policyNumber": "MOTOR-POLICY-001",
+    "incidentType": "COLLISION",
+    "incidentDate": "2025-01-15",
+    "status": "REPORTED"
+  }],
+  "page": 1,
+  "pageSize": 10,
+  "totalItems": 1,
+  "totalPages": 1
+}
+```
+
+Errors use a consistent payload. Full contracts are in the [TASK-001 design](tasks/TASK-001-create-claim/technical-design.md) and [TASK-002 design](tasks/TASK-002-claim-list/technical-design.md).
 
 ## Build and Verification
 
@@ -198,8 +221,10 @@ Validation, missing-policy, and unexpected failures use a consistent error paylo
 ```bash
 cd backend
 ./mvnw test
-./mvnw clean package
+TASK002_POSTGRES_TESTS=true ./mvnw clean package
 ```
+
+The flagged command requires PostgreSQL; it enables otherwise-skipped integration tests in isolated schemas.
 
 ### Frontend
 
@@ -209,23 +234,28 @@ npm ci
 npm run build
 ```
 
-TASK-001 passed QA with 14 backend tests, successful backend and frontend builds, PostgreSQL 17/JPA startup verification, and live API/browser integration checks. No implementation defects were found. The frontend has no automated test framework; its behavior was verified through live integration and source inspection. See [`qa-report.md`](tasks/TASK-001-create-claim/qa-report.md) for full evidence and limitations.
+| Accepted task | Recorded verification |
+|---|---|
+| TASK-001 | 14 backend tests; backend clean package and frontend build passed; PostgreSQL and browser/API verification passed; QA PASS, Human Approval APPROVED |
+| TASK-002 | 45 backend tests including PostgreSQL integration passed; backend clean package and frontend production build passed; real browser/API verification passed; QA PASS, Human Approval APPROVED |
+
+Evidence: [TASK-001 QA report](tasks/TASK-001-create-claim/qa-report.md) and [TASK-002 QA report](tasks/TASK-002-claim-list/qa-report.md). Frontend checks use the browser and source inspection, without an automated test framework.
 
 ## Workflow Principles
 
-- **Human authority:** human instructions outrank artifacts, and acceptance requires Human Approval.
-- **Role boundaries:** each agent owns defined decisions and does not redefine another role's work.
-- **Artifact-based handoffs:** requirements, reviews, contracts, notes, and results become inputs to the next stage.
-- **Separated ownership:** backend and frontend developers implement the same contract in their respective areas.
-- **Independent QA:** QA verifies merged behavior and routes defects instead of silently fixing them.
+- **Human authority:** acceptance requires Human Approval.
+- **Role boundaries:** respect each role’s decisions.
+- **Artifact-based handoffs:** artifacts inform each stage.
+- **Separated ownership:** backend/frontend follow the shared contract.
+- **Independent QA:** QA verifies merged behavior and reports defects.
 - **Escalation over assumption:** ambiguity returns to the appropriate owner.
 
 ## Roadmap
 
-The roadmap focuses on the delivery experiment rather than turning the prototype into a broad insurance platform:
+Planned delivery experiments:
 
-- Apply the workflow to additional small, reviewable tasks.
-- Improve traceability from acceptance criteria through implementation, tests, and approval.
-- Evaluate repeatable handoff, blocking, and rework orchestration.
-- Validate task artifacts and ownership boundaries automatically.
-- Compare worktree-based parallel delivery across future tasks.
+- Apply the workflow to more tasks.
+- Improve requirement-to-approval traceability.
+- Evaluate handoff and rework orchestration.
+- Automate artifact and boundary validation.
+- Compare parallel delivery across tasks.
