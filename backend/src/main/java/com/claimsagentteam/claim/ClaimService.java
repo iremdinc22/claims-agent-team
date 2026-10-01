@@ -7,6 +7,7 @@ import java.util.UUID;
 import com.claimsagentteam.policy.PolicyRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.annotation.Isolation;
 
 @Service
 public class ClaimService {
@@ -14,11 +15,13 @@ public class ClaimService {
     private final ClaimRepository claimRepository;
     private final PolicyRepository policyRepository;
     private final Clock clock;
+    private final CurrentUserProvider currentUserProvider;
 
-    public ClaimService(ClaimRepository claimRepository, PolicyRepository policyRepository, Clock clock) {
+    public ClaimService(ClaimRepository claimRepository, PolicyRepository policyRepository, Clock clock, CurrentUserProvider currentUserProvider) {
         this.claimRepository = claimRepository;
         this.policyRepository = policyRepository;
         this.clock = clock;
+        this.currentUserProvider = currentUserProvider;
     }
 
     @Transactional
@@ -38,9 +41,38 @@ public class ClaimService {
                 request.incidentType(),
                 request.incidentDate(),
                 request.description(),
-                ClaimStatus.REPORTED);
+                ClaimStatus.REPORTED,
+                currentUserId(),
+                clock.instant());
 
         claimRepository.save(claim);
         return new CreateClaimResponse(claimNumber.toString(), ClaimStatus.REPORTED);
+    }
+
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public ClaimListResponse listClaims(int page) {
+        if (page < 1) throw new InvalidClaimQueryException("page");
+        String owner = currentUserId();
+        long offset = ((long) page - 1) * 10;
+        long total = claimRepository.countByCreatedBy(owner);
+        var items = offset >= total ? java.util.List.<ClaimListItem>of()
+                : claimRepository.findOwnedPage(owner, offset).stream()
+                .map(claim -> new ClaimListItem(claim.getClaimNumber().toString(), claim.getPolicyNumber(),
+                        claim.getIncidentType(), claim.getIncidentDate(), claim.getStatus())).toList();
+        return new ClaimListResponse(items, page, 10, total, total / 10 + (total % 10 == 0 ? 0 : 1));
+    }
+
+    @Transactional(readOnly = true)
+    public ClaimDetailResponse getClaim(UUID claimNumber) {
+        ClaimEntity claim = claimRepository.findByClaimNumberAndCreatedBy(claimNumber, currentUserId())
+                .orElseThrow(ClaimNotFoundException::new);
+        return new ClaimDetailResponse(claim.getClaimNumber().toString(), claim.getPolicyNumber(),
+                claim.getIncidentType(), claim.getIncidentDate(), claim.getDescription(), claim.getStatus());
+    }
+
+    private String currentUserId() {
+        String owner = currentUserProvider.currentUserId();
+        if (owner == null || owner.isBlank()) throw new IllegalStateException("Current user unavailable");
+        return owner;
     }
 }

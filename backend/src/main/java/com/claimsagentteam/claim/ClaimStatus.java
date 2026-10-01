@@ -1,5 +1,5 @@
 package com.claimsagentteam.claim;
 
 public enum ClaimStatus {
-    REPORTED
+    REPORTED, PENDING, APPROVED, REJECTED
 }

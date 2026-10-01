@@ -4,6 +4,8 @@ import java.util.LinkedHashMap;
 import java.util.Map;
 
 import com.claimsagentteam.claim.ClaimController;
+import com.claimsagentteam.claim.ClaimNotFoundException;
+import com.claimsagentteam.claim.InvalidClaimQueryException;
 import com.claimsagentteam.claim.FutureIncidentDateException;
 import com.claimsagentteam.claim.PolicyNotFoundException;
 import com.fasterxml.jackson.databind.JsonMappingException;
@@ -51,6 +53,17 @@ public class ApiExceptionHandler {
                 "POLICY_NOT_FOUND",
                 "Referenced policy was not found",
                 Map.of("policyNumber", exception.getMessage())));
+    }
+
+    @ExceptionHandler(InvalidClaimQueryException.class)
+    ResponseEntity<ApiErrorResponse> handleInvalidQuery(InvalidClaimQueryException exception) {
+        return validationError(Map.of(exception.field(), "Invalid value"));
+    }
+
+    @ExceptionHandler(ClaimNotFoundException.class)
+    ResponseEntity<ApiErrorResponse> handleClaimNotFound(ClaimNotFoundException exception) {
+        return ResponseEntity.status(HttpStatus.NOT_FOUND).body(new ApiErrorResponse(
+                "CLAIM_NOT_FOUND", "Claim not found", Map.of()));
     }
 
     @ExceptionHandler(Exception.class)

@@ -1,6 +1,7 @@
 package com.claimsagentteam.claim;
 
 import java.time.LocalDate;
+import java.time.Instant;
 import java.util.UUID;
 
 import jakarta.persistence.Column;
@@ -35,6 +36,15 @@ public class ClaimEntity {
     @Column(name = "status", nullable = false, updatable = false)
     private ClaimStatus status;
 
+    @Column(name = "created_by", nullable = false, updatable = false)
+    private String createdBy;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt;
+
+    public String getCreatedBy() { return createdBy; }
+    public Instant getCreatedAt() { return createdAt; }
+
     protected ClaimEntity() {
     }
 
@@ -44,13 +54,17 @@ public class ClaimEntity {
             IncidentType incidentType,
             LocalDate incidentDate,
             String description,
-            ClaimStatus status) {
+            ClaimStatus status,
+            String createdBy,
+            Instant createdAt) {
         this.claimNumber = claimNumber;
         this.policyNumber = policyNumber;
         this.incidentType = incidentType;
         this.incidentDate = incidentDate;
         this.description = description;
         this.status = status;
+        this.createdBy = createdBy;
+        this.createdAt = createdAt;
     }
 
     public UUID getClaimNumber() {
