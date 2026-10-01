@@ -285,3 +285,10 @@ td { font-size: 0.9rem; }
 .claim-detail dt { font-weight: 700; margin-top: 1rem; }
 .claim-detail dd { margin: 0; overflow-wrap: anywhere; }
 .claim-description { white-space: pre-wrap; }
+
+.status-filter {
+  display: grid;
+  gap: 0.5rem;
+  max-width: 18rem;
+  margin-bottom: 1.5rem;
+}

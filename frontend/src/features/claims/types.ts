@@ -28,6 +28,8 @@ export interface ApiErrorResponse {
 export const CLAIM_STATUSES = ['REPORTED', 'PENDING', 'APPROVED', 'REJECTED'] as const
 export type ClaimStatus = (typeof CLAIM_STATUSES)[number]
 
+export type ClaimStatusFilter = 'All' | ClaimStatus
+
 export interface ClaimListItem {
   claimNumber: string
   policyNumber: string
