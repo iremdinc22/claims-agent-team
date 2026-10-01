@@ -5,6 +5,7 @@ import type {
   ClaimListItem,
   ClaimDetail,
   ClaimListResponse,
+  ClaimStatus,
 } from './types'
 import { CLAIM_STATUSES, INCIDENT_TYPES } from './types'
 
@@ -107,9 +108,12 @@ async function readClaimRequest(url: string, signal?: AbortSignal): Promise<unkn
   return body
 }
 
-export async function listClaims(page: number, signal?: AbortSignal): Promise<ClaimListResponse> {
-  const body = await readClaimRequest(`/api/claims?page=${page}`, signal)
+export async function listClaims(page: number, signal?: AbortSignal, status?: ClaimStatus): Promise<ClaimListResponse> {
+  const query = new URLSearchParams({ page: String(page) })
+  if (status !== undefined) query.set('status', status)
+  const body = await readClaimRequest(`/api/claims?${query}`, signal)
   if (!isRecord(body) || !Array.isArray(body.items) || !body.items.every(isClaimListItem) ||
+      (status !== undefined && !body.items.every((item) => item.status === status)) ||
       body.page !== page || body.pageSize !== 10 ||
       !Number.isSafeInteger(body.totalItems) || (body.totalItems as number) < 0 ||
       body.totalPages !== Math.ceil((body.totalItems as number) / 10) ||

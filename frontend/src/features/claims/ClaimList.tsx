@@ -1,22 +1,32 @@
 import { useCallback, useState } from 'react'
 import { listClaims } from './claimsApi'
 import { useClaimRead } from './useClaimRead'
+import { CLAIM_STATUSES, type ClaimStatusFilter } from './types'
 
 interface Props {
   page: number
+  status: ClaimStatusFilter
+  onStatus: (status: ClaimStatusFilter) => void
   onPage: (page: number) => void
   onSelect: (claimNumber: string) => void
 }
 
-export default function ClaimList({ page, onPage, onSelect }: Props) {
+export default function ClaimList({ page, status, onStatus, onPage, onSelect }: Props) {
   const [attempt, setAttempt] = useState(0)
-  const load = useCallback((signal: AbortSignal) => listClaims(page, signal), [page, attempt])
+  const load = useCallback((signal: AbortSignal) => listClaims(page, signal, status === 'All' ? undefined : status), [page, status, attempt])
   const state = useClaimRead(load)
   return (
     <section className="claim-card read-card" aria-label="Your claims">
+      <div className="status-filter">
+        <label htmlFor="claim-status-filter">Status</label>
+        <select id="claim-status-filter" value={status} onChange={(event) => onStatus(event.target.value as ClaimStatusFilter)}>
+          <option value="All">All</option>
+          {CLAIM_STATUSES.map((value) => <option key={value} value={value}>{value}</option>)}
+        </select>
+      </div>
       {state.kind === 'loading' && <p role="status">Loading claims…</p>}
       {state.kind === 'error' && <div role="alert"><p>We could not load your claims. Please try again.</p><button onClick={() => setAttempt((value) => value + 1)}>Retry</button></div>}
-      {state.kind === 'success' && (state.data.totalItems === 0 ? <p role="status">You have no claims yet.</p> : <>
+      {state.kind === 'success' && (state.data.totalItems === 0 ? <p role="status">{status === 'All' ? 'You have no claims yet.' : 'No claims found'}</p> : <>
         {state.data.items.length === 0 ? <div role="status"><p>This page is no longer available.</p><button onClick={() => onPage(1)}>Go to first page</button></div> :
           <div className="table-scroll"><table>
             <caption>Your claims, newest incident first</caption>
