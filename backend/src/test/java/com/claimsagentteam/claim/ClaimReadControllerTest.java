@@ -42,11 +42,54 @@ class ClaimReadControllerTest {
     }
 
     @ParameterizedTest @ValueSource(strings = {"page=0", "page=-1", "page=", "page=x", "page=1.5",
-            "page=2147483648", "page=1&page=2", "userId=other", "size=10", "sort=status", "status=REPORTED"})
+            "page=2147483648", "page=1&page=2", "userId=other", "size=10", "sort=status"})
     void rejectsInvalidQuery(String query) throws Exception {
         mvc.perform(get("/api/claims?" + query)).andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.code").value("VALIDATION_ERROR"));
         verifyNoInteractions(service);
+    }
+
+    @ParameterizedTest @org.junit.jupiter.params.provider.EnumSource(ClaimStatus.class)
+    void acceptsExactStatus(ClaimStatus selected) throws Exception {
+        when(service.listClaims(2, selected)).thenReturn(new ClaimListResponse(List.of(new ClaimListItem(
+                ID.toString(), "P", IncidentType.COLLISION, LocalDate.of(2025, 1, 15), selected)), 2, 10, 11, 2));
+        mvc.perform(get("/api/claims").param("page", "2").param("status", selected.name())
+                .header("X-User-ID", "other"))
+                .andExpect(status().isOk()).andExpect(content().json("""
+                {"items":[{"claimNumber":"550e8400-e29b-41d4-a716-446655440000",
+                "policyNumber":"P","incidentType":"COLLISION","incidentDate":"2025-01-15",
+                "status":"%s"}],"page":2,"pageSize":10,"totalItems":11,"totalPages":2}
+                """.formatted(selected.name()), true));
+        verify(service).listClaims(2, selected);
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"", " ", "reported", "Reported", "All", "ALL", "UNKNOWN", "REPORTED,PENDING"})
+    void rejectsInvalidStatus(String value) throws Exception {
+        mvc.perform(get("/api/claims").param("status", value)).andExpect(status().isBadRequest())
+                .andExpect(content().json("""
+                {"code":"VALIDATION_ERROR","message":"Request validation failed","fieldErrors":{"status":"Invalid value"}}
+                """, true));
+        verifyNoInteractions(service);
+    }
+
+    @ParameterizedTest @ValueSource(strings = {"REPORTED", "PENDING"})
+    void rejectsRepeatedStatus(String second) throws Exception {
+        mvc.perform(get("/api/claims").param("status", "REPORTED", second)).andExpect(status().isBadRequest())
+                .andExpect(jsonPath("$.fieldErrors.status").value("Invalid value"));
+        verifyNoInteractions(service);
+    }
+
+    @Test void detailStillRejectsStatus() throws Exception {
+        mvc.perform(get("/api/claims/" + ID).param("status", "REPORTED"))
+                .andExpect(status().isBadRequest()).andExpect(jsonPath("$.fieldErrors.status").value("Invalid value"));
+        verifyNoInteractions(service);
+    }
+
+    @Test void filteredFailureIsSanitized() throws Exception {
+        when(service.listClaims(1, ClaimStatus.PENDING)).thenThrow(new IllegalStateException("SQL secret"));
+        mvc.perform(get("/api/claims").param("status", "PENDING"))
+                .andExpect(status().isInternalServerError()).andExpect(content().json(
+                "{\"code\":\"INTERNAL_ERROR\",\"message\":\"The request could not be completed\",\"fieldErrors\":{}}", true));
     }
 
     @ParameterizedTest @ValueSource(strings = {"not-a-uuid", "1-1-1-1-1"})

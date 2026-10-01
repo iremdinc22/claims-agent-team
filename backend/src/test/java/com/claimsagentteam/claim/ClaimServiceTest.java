@@ -108,11 +108,13 @@ class ClaimServiceTest {
         for (String identity : new String[]{null, "", "  "}) {
             ClaimService service = new ClaimService(claimRepository, policyRepository, CLOCK, () -> identity);
             assertThatThrownBy(() -> service.listClaims(1)).isInstanceOf(IllegalStateException.class);
+            assertThatThrownBy(() -> service.listClaims(1, ClaimStatus.PENDING)).isInstanceOf(IllegalStateException.class);
             assertThatThrownBy(() -> service.getClaim(UUID.randomUUID())).isInstanceOf(IllegalStateException.class);
         }
         ClaimService service = new ClaimService(claimRepository, policyRepository, CLOCK,
                 () -> { throw new IllegalStateException("identity unavailable"); });
         assertThatThrownBy(() -> service.listClaims(1)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> service.listClaims(1, ClaimStatus.PENDING)).isInstanceOf(IllegalStateException.class);
         org.mockito.Mockito.verifyNoInteractions(claimRepository);
     }
 
@@ -122,6 +124,17 @@ class ClaimServiceTest {
         when(claimRepository.save(any())).thenThrow(new IllegalStateException("unavailable"));
         assertThatThrownBy(() -> claimService.createClaim(requestWithDate(LocalDate.of(2025, 1, 15))))
                 .isInstanceOf(IllegalStateException.class);
+    }
+
+    @Test void filteredMaximumPageAndInvalidPage() {
+        when(claimRepository.countByCreatedByAndStatus("prototype-demo-user", ClaimStatus.PENDING)).thenReturn(21L);
+        var result = claimService.listClaims(Integer.MAX_VALUE, ClaimStatus.PENDING);
+        assertThat(result.items()).isEmpty();
+        assertThat(result.totalItems()).isEqualTo(21);
+        assertThat(result.totalPages()).isEqualTo(3);
+        verify(claimRepository, never()).findOwnedStatusPage(any(), any(), org.mockito.ArgumentMatchers.anyLong());
+        verify(claimRepository, never()).countByCreatedBy(any());
+        assertThatThrownBy(() -> claimService.listClaims(0, ClaimStatus.PENDING)).isInstanceOf(InvalidClaimQueryException.class);
     }
 
     private CreateClaimRequest requestWithDate(LocalDate incidentDate) {

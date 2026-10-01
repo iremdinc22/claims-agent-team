@@ -10,6 +10,8 @@ import org.springframework.data.repository.query.Param;
 public interface ClaimRepository extends JpaRepository<ClaimEntity, UUID> {
     long countByCreatedBy(String createdBy);
 
+    long countByCreatedByAndStatus(String createdBy, ClaimStatus status);
+
     Optional<ClaimEntity> findByClaimNumberAndCreatedBy(UUID claimNumber, String createdBy);
 
     @Query(value = """
@@ -18,4 +20,11 @@ public interface ClaimRepository extends JpaRepository<ClaimEntity, UUID> {
             LIMIT 10 OFFSET :offset
             """, nativeQuery = true)
     List<ClaimEntity> findOwnedPage(@Param("owner") String owner, @Param("offset") long offset);
+    @Query(value = """
+            SELECT * FROM claims WHERE created_by = :owner AND status = :status
+            ORDER BY incident_date DESC, created_at DESC, claim_number ASC
+            LIMIT 10 OFFSET :offset
+            """, nativeQuery = true)
+    List<ClaimEntity> findOwnedStatusPage(@Param("owner") String owner,
+            @Param("status") String status, @Param("offset") long offset);
 }

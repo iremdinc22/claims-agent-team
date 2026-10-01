@@ -51,12 +51,19 @@ public class ClaimService {
 
     @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
     public ClaimListResponse listClaims(int page) {
+        return listClaims(page, null);
+    }
+
+    @Transactional(readOnly = true, isolation = Isolation.REPEATABLE_READ)
+    public ClaimListResponse listClaims(int page, ClaimStatus status) {
         if (page < 1) throw new InvalidClaimQueryException("page");
         String owner = currentUserId();
         long offset = ((long) page - 1) * 10;
-        long total = claimRepository.countByCreatedBy(owner);
+        long total = status == null ? claimRepository.countByCreatedBy(owner)
+                : claimRepository.countByCreatedByAndStatus(owner, status);
         var items = offset >= total ? java.util.List.<ClaimListItem>of()
-                : claimRepository.findOwnedPage(owner, offset).stream()
+                : (status == null ? claimRepository.findOwnedPage(owner, offset)
+                        : claimRepository.findOwnedStatusPage(owner, status.name(), offset)).stream()
                 .map(claim -> new ClaimListItem(claim.getClaimNumber().toString(), claim.getPolicyNumber(),
                         claim.getIncidentType(), claim.getIncidentDate(), claim.getStatus())).toList();
         return new ClaimListResponse(items, page, 10, total, total / 10 + (total % 10 == 0 ? 0 : 1));

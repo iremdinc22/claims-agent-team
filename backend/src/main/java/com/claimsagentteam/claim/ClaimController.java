@@ -32,7 +32,7 @@ public class ClaimController {
     @GetMapping
     public ClaimListResponse listClaims(@RequestParam MultiValueMap<String, String> parameters) {
         for (String key : parameters.keySet()) {
-            if (!key.equals("page")) throw new InvalidClaimQueryException(key);
+            if (!key.equals("page") && !key.equals("status")) throw new InvalidClaimQueryException(key);
         }
         int page = 1;
         if (parameters.containsKey("page")) {
@@ -44,7 +44,13 @@ public class ClaimController {
             catch (NumberFormatException exception) { throw new InvalidClaimQueryException("page"); }
             if (page < 1) throw new InvalidClaimQueryException("page");
         }
-        return claimService.listClaims(page);
+        if (!parameters.containsKey("status")) return claimService.listClaims(page);
+        var values = parameters.get("status");
+        if (values.size() != 1) throw new InvalidClaimQueryException("status");
+        ClaimStatus status;
+        try { status = ClaimStatus.valueOf(values.getFirst()); }
+        catch (IllegalArgumentException exception) { throw new InvalidClaimQueryException("status"); }
+        return claimService.listClaims(page, status);
     }
 
     @GetMapping("/{claimNumber}")

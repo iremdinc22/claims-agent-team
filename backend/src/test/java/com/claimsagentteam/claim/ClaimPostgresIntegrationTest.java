@@ -104,6 +104,66 @@ class ClaimPostgresIntegrationTest {
         }
     }
 
+    @ParameterizedTest @org.junit.jupiter.params.provider.EnumSource(ClaimStatus.class)
+    void filteredPaginationOwnershipOrderingAndReadOnly(ClaimStatus selected) throws Exception {
+        String owner = DemoCurrentUserProvider.DEMO_USER_ID;
+        ClaimStatus nonmatching = ClaimStatus.values()[(selected.ordinal() + 1) % 4];
+        for (int count : new int[]{0, 1, 10, 11, 20, 21}) {
+            jdbc.update("DELETE FROM claims");
+            List<String> expected = new ArrayList<>();
+            // More recent nonmatches occupy the old first page; filter must precede LIMIT.
+            for (int i = 1; i <= 12; i++) {
+                seed(owner, LocalDate.of(2026, 1, 1), NOW, nonmatching, 100 + i);
+                seed("other-user", LocalDate.of(2026, 1, 1), NOW, selected, 200 + i);
+            }
+            for (int i = 1; i <= count; i++) {
+                // Exact timestamp ties also cross page boundaries; UUID resolves each tie.
+                expected.add(seed(owner, LocalDate.of(2025, 1, 15), NOW.minusSeconds((i - 1) / 3),
+                        selected, i).toString());
+            }
+            List<String> actual = new ArrayList<>();
+            for (int page = 1; page <= Math.max(1, (count + 9) / 10); page++) {
+                var response = mvc.perform(get("/api/claims").param("page", Integer.toString(page))
+                        .param("status", selected.name()).header("X-User-ID", "other-user"))
+                        .andExpect(status().isOk()).andReturn().getResponse();
+                var result = mapper.readValue(response.getContentAsString(), ClaimListResponse.class);
+                assertThat(result.page()).isEqualTo(page);
+                assertThat(result.pageSize()).isEqualTo(10);
+                assertThat(result.totalItems()).isEqualTo(count);
+                assertThat(result.totalPages()).isEqualTo((count + 9) / 10);
+                assertThat(result.items()).hasSize(Math.min(10, Math.max(0, count - (page - 1) * 10)));
+                for (var item : result.items()) {
+                    actual.add(item.claimNumber());
+                    assertThat(item.status()).isEqualTo(selected);
+                    mvc.perform(get("/api/claims/" + item.claimNumber()))
+                            .andExpect(status().isOk()).andExpect(jsonPath("$.status").value(selected.name()))
+                            .andExpect(jsonPath("$.description").exists());
+                }
+            }
+            assertThat(actual).containsExactlyElementsOf(expected);
+            for (int page : new int[]{(count + 9) / 10 + 1, Integer.MAX_VALUE}) {
+                var result = service.listClaims(page, selected);
+                assertThat(result.items()).isEmpty();
+                assertThat(result.totalItems()).isEqualTo(count);
+                assertThat(result.totalPages()).isEqualTo((count + 9) / 10);
+            }
+            assertThat(service.listClaims(1).totalItems()).isEqualTo(count + 12);
+            assertThatThrownBy(() -> service.getClaim(new UUID(0, 201))).isInstanceOf(ClaimNotFoundException.class);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM claims WHERE status = ?", Long.class,
+                    selected.name())).isEqualTo(count + 12L);
+            assertThat(jdbc.queryForObject("SELECT count(*) FROM claims", Long.class)).isEqualTo(count + 24L);
+        }
+    }
+
+    @ParameterizedTest @org.junit.jupiter.params.provider.EnumSource(ClaimStatus.class)
+    void filteredIncidentDatePriorityAndUuidFallback(ClaimStatus selected) {
+        var older = seed("prototype-demo-user", LocalDate.of(2024, 1, 1), NOW, selected, 1);
+        var second = seed("prototype-demo-user", LocalDate.of(2025, 1, 1), NOW.minusSeconds(100), selected, 3);
+        var first = seed("prototype-demo-user", LocalDate.of(2025, 1, 1), NOW.minusSeconds(100), selected, 2);
+        assertThat(service.listClaims(1, selected).items()).extracting(ClaimListItem::claimNumber)
+                .containsExactly(first.toString(), second.toString(), older.toString());
+    }
+
     @Test void incidentDateHasPriorityAndUuidBreaksExactTies() {
         var older = seed("prototype-demo-user", LocalDate.of(2024, 1, 1), NOW, ClaimStatus.APPROVED, 1);
         var second = seed("prototype-demo-user", LocalDate.of(2025, 1, 1), NOW.minusSeconds(100), ClaimStatus.REJECTED, 3);
@@ -140,6 +200,11 @@ class ClaimPostgresIntegrationTest {
                 .andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(1));
         mvc.perform(get("/api/claims/" + id).header("X-User-ID", "other-user"))
                 .andExpect(status().isOk()).andExpect(jsonPath("$.description").value("Regression"));
+        mvc.perform(get("/api/claims").param("status", "REPORTED").header("X-User-ID", "other-user"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(1))
+                .andExpect(jsonPath("$.items[0].claimNumber").value(id.toString()));
+        mvc.perform(get("/api/claims").param("status", "APPROVED"))
+                .andExpect(status().isOk()).andExpect(jsonPath("$.totalItems").value(0));
         var other = seed("other-user", LocalDate.of(2025, 1, 1), NOW, ClaimStatus.APPROVED, 100);
         String nonOwned = mvc.perform(get("/api/claims/" + other).header("X-User-ID", "other-user"))
                 .andExpect(status().isNotFound()).andReturn().getResponse().getContentAsString();
